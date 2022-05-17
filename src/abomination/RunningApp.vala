@@ -52,6 +52,20 @@ namespace Budgie.Abomination {
 			return this.window;
 		}
 
+		public void toggle() {
+			if (!this.window.is_active()) {
+				var event_time = get_monotonic_time() / 1000;
+				this.window.unminimize((uint32) event_time); // Ensure we unminimize it
+				this.window.activate((uint32) event_time);
+			} else {
+				this.window.minimize();
+			}
+		}
+
+		public void close() {
+
+		}
+
 		/**
 		 * set_window will handle setting our window and its bindings
 		 */

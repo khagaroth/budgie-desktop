@@ -15,7 +15,7 @@ libabomination_deps = [
 	link_libappsys,
 ]
 
-libabomination = static_library(
+libabomination = shared_library(
     'abomination',
     libabomination_sources,
     dependencies: libabomination_deps,
@@ -29,10 +29,13 @@ libabomination = static_library(
     c_args: [
         '-DWNCK_I_KNOW_THIS_IS_UNSTABLE',
     ],
+    version: '0.0.0',
+    install: true,
 )
 
 link_libabomination = declare_dependency(
     link_with: libabomination,
+    dependencies: libabomination_deps,
     include_directories: [
         include_directories('.'),
     ],

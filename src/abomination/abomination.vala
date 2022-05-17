@@ -44,6 +44,7 @@ namespace Budgie.Abomination {
 		public signal void added_app(string group, RunningApp app);
 		public signal void removed_app(string group, RunningApp app);
 		public signal void updated_group(AppGroup group);
+		public signal void active_app_changed(RunningApp? previous_app, RunningApp? current_app);
 
 		public Abomination() {
 			this.app_system = new Budgie.AppSystem();
@@ -73,6 +74,7 @@ namespace Budgie.Abomination {
 
 			this.screen.window_closed.connect(this.remove_app);
 			this.screen.window_opened.connect(this.add_app);
+			this.screen.active_window_changed.connect(this.on_active_window_changed);
 
 			this.screen.get_windows().foreach((window) => { // Init all our current running windows
 				this.add_app(window);
@@ -359,6 +361,15 @@ namespace Budgie.Abomination {
 			if (this.color_settings != null) {
 				this.original_night_light_setting = this.color_settings.get_boolean("night-light-enabled");
 			}
+		}
+
+		private void on_active_window_changed(Wnck.Window? previous_window) {
+			Wnck.Window current_window = this.screen.get_active_window();
+
+			RunningApp previous_app = previous_window != null ? this.running_apps_id.get(previous_window.get_xid()) : null;
+			RunningApp current_app = current_window != null ? this.running_apps_id.get(current_window.get_xid()) : null;
+
+			this.active_app_changed(previous_app, current_app);
 		}
 	}
 }
