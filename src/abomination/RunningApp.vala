@@ -21,7 +21,7 @@ namespace Budgie.Abomination {
 		public string icon { get; private set; } // Icon associated with this app
 
 		public unowned AppGroup group_object { get; private set; } // Actual AppGroup object
-		public unowned Workspace workspace { get; private set; }
+		public Workspace workspace { get; private set; }
 
 		private Wnck.Window window; // Window of app
 		private Budgie.AppSystem? app_system = null;
@@ -32,6 +32,7 @@ namespace Budgie.Abomination {
 		public signal void icon_changed(string icon_name);
 		public signal void renamed_app(string old_name, string new_name);
 		public signal void app_info_changed(DesktopAppInfo? app_info);
+		public signal void workspace_changed();
 
 		internal RunningApp(Budgie.AppSystem app_system, Wnck.Window window, AppGroup group) {
 			this.set_window(window);
@@ -39,6 +40,7 @@ namespace Budgie.Abomination {
 			this.id = this.window.get_xid();
 			this.name = this.window.get_name();
 			this.group_object = group;
+			this.workspace = new Workspace(this.window.get_workspace());
 
 			this.app_system = app_system;
 			this.update_app_info();
@@ -92,6 +94,10 @@ namespace Budgie.Abomination {
 
 			this.window.name_changed.connect(() => this.update_name());
 			this.window.state_changed.connect(() => this.update_name());
+			this.window.workspace_changed.connect(() => {
+				this.workspace = new Workspace(this.window.get_workspace());
+				this.workspace_changed();
+			});
 		}
 
 		/**

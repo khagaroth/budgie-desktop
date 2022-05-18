@@ -48,7 +48,7 @@ namespace Budgie.Abomination {
 
 		public signal void workspace_added(Workspace workspace); // Wnck.Screen.workspace_created
 		public signal void workspace_removed(Workspace workspace); // Wnck.Screen.workspace_destroyed
-		public signal void active_workspace_changed(Workspace? previous_workspace, Workspace current_workspace); // Wnck.Screen.active_workspace_changed
+		public signal void active_workspace_changed(); // Wnck.Screen.active_workspace_changed
 
 		public Abomination() {
 			this.app_system = new Budgie.AppSystem();
@@ -79,6 +79,7 @@ namespace Budgie.Abomination {
 			this.screen.window_closed.connect(this.remove_app);
 			this.screen.window_opened.connect(this.add_app);
 			this.screen.active_window_changed.connect(this.on_active_window_changed);
+			this.screen.active_workspace_changed.connect(() => this.active_workspace_changed());
 
 			this.screen.get_windows().foreach((window) => { // Init all our current running windows
 				this.add_app(window);
@@ -139,6 +140,10 @@ namespace Budgie.Abomination {
 			}
 
 			return first_app;
+		}
+
+		public Workspace get_active_workspace() {
+			return new Workspace(this.screen.get_active_workspace());
 		}
 
 		private AppGroup? get_window_group(Wnck.Window window) {
