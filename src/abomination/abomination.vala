@@ -46,6 +46,10 @@ namespace Budgie.Abomination {
 		public signal void updated_group(AppGroup group);
 		public signal void active_app_changed(RunningApp? previous_app, RunningApp? current_app);
 
+		public signal void workspace_added(Workspace workspace); // Wnck.Screen.workspace_created
+		public signal void workspace_removed(Workspace workspace); // Wnck.Screen.workspace_destroyed
+		public signal void active_workspace_changed(Workspace? previous_workspace, Workspace current_workspace); // Wnck.Screen.active_workspace_changed
+
 		public Abomination() {
 			this.app_system = new Budgie.AppSystem();
 			this.color_settings = new Settings("org.gnome.settings-daemon.plugins.color");

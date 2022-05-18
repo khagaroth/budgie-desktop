@@ -19,7 +19,9 @@ namespace Budgie.Abomination {
 		public string name { get; private set; } // App name
 		public DesktopAppInfo? app_info { get; private set; default = null; }
 		public string icon { get; private set; } // Icon associated with this app
+
 		public unowned AppGroup group_object { get; private set; } // Actual AppGroup object
+		public unowned Workspace workspace { get; private set; }
 
 		private Wnck.Window window; // Window of app
 		private Budgie.AppSystem? app_system = null;
@@ -63,7 +65,7 @@ namespace Budgie.Abomination {
 		}
 
 		public void close() {
-
+			this.window.close((uint32) get_monotonic_time() / 1000);
 		}
 
 		/**

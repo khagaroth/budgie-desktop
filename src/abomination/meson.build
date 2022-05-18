@@ -5,6 +5,7 @@ libabomination_sources = [
     'RunningApp.vala',
     'AppGroup.vala',
     'utils.vala',
+    'Workspace.vala',
 ]
 
 libabomination_deps = [
