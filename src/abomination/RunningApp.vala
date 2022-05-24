@@ -17,33 +17,43 @@ namespace Budgie.Abomination {
 	public class RunningApp : GLib.Object {
 		public ulong id { get; private set; } // Window id
 		public string name { get; private set; } // App name
-		public DesktopAppInfo? app_info { get; private set; default = null; }
-		public string icon { get; private set; } // Icon associated with this app
+		public DesktopAppInfo? app_info {
+			owned get {
+				return this.app_system.query_window(this.window);
+			}
+		}
 
 		public unowned AppGroup group_object { get; private set; } // Actual AppGroup object
 		public Workspace workspace { get; private set; }
 
 		private Wnck.Window window; // Window of app
 		private Budgie.AppSystem? app_system = null;
+		private string current_icon = null; // Icon associated with this app
+		private Gtk.IconTheme icon_theme = null;
 
 		/**
 		 * Signals
 		 */
-		public signal void icon_changed(string icon_name);
+		public signal void icon_changed();
 		public signal void renamed_app(string old_name, string new_name);
 		public signal void app_info_changed(DesktopAppInfo? app_info);
 		public signal void workspace_changed();
 
 		internal RunningApp(Budgie.AppSystem app_system, Wnck.Window window, AppGroup group) {
-			this.set_window(window);
-
-			this.id = this.window.get_xid();
-			this.name = this.window.get_name();
+			this.id = window.get_xid();
+			this.name = window.get_name();
 			this.group_object = group;
-			this.workspace = new Workspace(this.window.get_workspace());
+			this.workspace = new Workspace(window.get_workspace());
+			this.icon_theme = Gtk.IconTheme.get_default();
 
 			this.app_system = app_system;
-			this.update_app_info();
+			this.set_window(window);
+			this.app_info_changed(this.app_info);
+
+			this.icon_theme.changed.connect(() => {
+				this.icon_theme = Gtk.IconTheme.get_default();
+				this.icon_changed();
+			});
 
 			debug("Created app: %s", this.name);
 		}
@@ -70,6 +80,26 @@ namespace Budgie.Abomination {
 			this.window.close((uint32) get_monotonic_time() / 1000);
 		}
 
+		public Gdk.Pixbuf get_icon() {
+			Gdk.Pixbuf pixbuf = null;
+
+			var app_info = this.app_info; // sometime app_info disappear in the middle of getting the icon
+
+			if (app_info is GLib.AppInfo && app_info.get_icon() != null) { // gicon is our best shoot as it respects user theme
+				pixbuf = this.icon_theme.load_icon(app_info.get_icon().to_string(), Gtk.IconSize.INVALID, Gtk.IconLookupFlags.FORCE_REGULAR);
+			} else {
+				warning("Use pixbuf for %s", this.name);
+
+				pixbuf = this.window.get_icon(); // FIXME: Pixbuf one is blurry. Could retry to get icon one more time and call icon_changed after that so that we catch the one we fail to match for whatever reason
+			}
+
+			if (pixbuf == null) {
+				pixbuf = this.icon_theme.load_icon("image-missing", Gtk.IconSize.INVALID, Gtk.IconLookupFlags.FORCE_REGULAR);
+			}
+
+			return pixbuf.copy();
+		}
+
 		/**
 		 * set_window will handle setting our window and its bindings
 		 */
@@ -83,7 +113,7 @@ namespace Budgie.Abomination {
 			this.update_name();
 
 			this.window.class_changed.connect(() => {
-				this.update_app_info();
+				this.app_info_changed(this.app_info);
 				this.update_icon();
 				this.update_name();
 			});
@@ -101,28 +131,20 @@ namespace Budgie.Abomination {
 		}
 
 		/**
-		 * update_app_info will update our app information based on the window
-		 * associated with the app.
-		 */
-		private void update_app_info() {
-			this.app_info = this.app_system.query_window(this.window);
-			this.app_info_changed(this.app_info);
-		}
-
-		/**
 		 * update_icon will update our icon and notify that it changed
 		 */
 		private void update_icon() {
-			if (this.app_info == null || !this.app_info.has_key("Icon")) {
+			var app_info = this.app_info; // sometime app_info disappear in the middle of updating the icon
+			if (!(app_info is GLib.AppInfo) || (app_info is GLib.AppInfo && app_info.get_icon() == null)) {
 				return;
 			}
 
-			string old_icon = this.icon;
-			this.icon = this.app_info.get_string("Icon");
+			string old_icon = this.current_icon;
+			this.current_icon = app_info.get_icon().to_string();
 
-			if (this.icon != old_icon) { // Actually changed
+			if (this.current_icon != old_icon) { // Actually changed
 				debug("Icon changed for app %s", this.name);
-				this.icon_changed(this.icon);
+				this.icon_changed();
 			}
 		}
 
