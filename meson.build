@@ -111,11 +111,6 @@ cdata.set_quoted('SYSCONFDIR', confdir)
 cdata.set_quoted('LOCALEDIR', localedir)
 cdata.set_quoted('PACKAGE_URL', 'https://buddiesofbudgie.org')
 
-with_bluetooth = get_option('with-bluetooth')
-if with_bluetooth == true
-  add_project_arguments('-D', 'with_bluetooth', language: 'vala')
-endif
-
 with_hibernate = get_option('with-hibernate')
 if with_hibernate == true
   add_project_arguments('-D', 'WITH_HIBERNATE', language: 'vala')
