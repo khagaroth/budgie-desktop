@@ -17,6 +17,9 @@
  */
 public class ApplicationListView : ApplicationView {
 	const int HEIGHT = 510;
+	const int WIDTH = 300;
+	private int SCALED_HEIGHT = HEIGHT;
+	private int SCALED_WIDTH = WIDTH;
 
 	private Gtk.Box categories;
 	private Gtk.ListBox applications;
@@ -43,10 +46,13 @@ public class ApplicationListView : ApplicationView {
 			orientation: Gtk.Orientation.HORIZONTAL,
 			spacing: 0
 		);
+
+		SCALED_HEIGHT = HEIGHT / this.scale_factor;
+		SCALED_WIDTH = WIDTH / this.scale_factor;
 	}
 
 	construct {
-		this.set_size_request(300, HEIGHT);
+		this.set_size_request(SCALED_WIDTH, SCALED_HEIGHT);
 		this.icon_size = settings.get_int("menu-icons-size");
 
 		this.categories = new Gtk.Box(Gtk.Orientation.VERTICAL, 0) {
@@ -54,12 +60,16 @@ public class ApplicationListView : ApplicationView {
 			margin_bottom = 3
 		};
 
+		notify["scale-factor"].connect(() => {
+			this.set_scaled_sizing();
+		});
+
 		this.categories_scroll = new Gtk.ScrolledWindow(null, null) {
 			overlay_scrolling = false,
 			shadow_type = Gtk.ShadowType.NONE, // Don't have an outline
 			hscrollbar_policy = Gtk.PolicyType.NEVER,
 			vscrollbar_policy = Gtk.PolicyType.AUTOMATIC,
-			min_content_height = HEIGHT,
+			min_content_height = SCALED_HEIGHT,
 			propagate_natural_height = true
 		};
 		this.categories_scroll.get_style_context().add_class("categories");
@@ -71,19 +81,19 @@ public class ApplicationListView : ApplicationView {
 		this.all_categories = new CategoryButton(null);
 		this.all_categories.enter_notify_event.connect(this.on_mouse_enter);
 		this.all_categories.toggled.connect(()=> {
-			this.update_category(this.all_categories);
+			this.update_category(all_categories);
 		});
-		this.categories.pack_start(this.all_categories, false, false, 0);
+		this.categories.pack_start(all_categories, false);
 
 		var right_layout = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
 		this.pack_start(right_layout, true, true, 0);
 
 		// holds all the applications
 		this.applications = new Gtk.ListBox() {
-			selection_mode = Gtk.SelectionMode.NONE,
+			selection_mode = Gtk.SelectionMode.SINGLE,
 			valign = Gtk.Align.START,
 			// Make sure that the box at least covers the whole area. This helps more themes look better
-			height_request = HEIGHT
+			height_request = SCALED_HEIGHT
 		};
 		this.applications.row_activated.connect(this.on_row_activate);
 
@@ -91,7 +101,7 @@ public class ApplicationListView : ApplicationView {
 			overlay_scrolling = true,
 			hscrollbar_policy = Gtk.PolicyType.NEVER,
 			vscrollbar_policy = Gtk.PolicyType.AUTOMATIC,
-			min_content_height = HEIGHT
+			min_content_height = SCALED_HEIGHT
 		};
 		this.content_scroll.set_overlay_scrolling(true);
 		this.content_scroll.add(applications);
@@ -115,6 +125,21 @@ public class ApplicationListView : ApplicationView {
 		// management of our listbox
 		this.applications.set_filter_func(do_filter_list);
 		this.applications.set_sort_func(do_sort_list);
+
+		this.set_scaled_sizing();
+	}
+
+	/**
+	* Sets various widgets to use sizing based on current scale and our default HEIGHT
+	*/
+	private void set_scaled_sizing() {
+		SCALED_HEIGHT = HEIGHT / this.scale_factor;
+		SCALED_WIDTH = WIDTH / this.scale_factor;
+		this.set_size_request(SCALED_WIDTH, SCALED_HEIGHT);
+
+		this.categories_scroll.min_content_height = SCALED_HEIGHT;
+		this.content_scroll.min_content_height = SCALED_HEIGHT;
+		this.applications.height_request = SCALED_HEIGHT;
 	}
 
 	/**
@@ -136,9 +161,9 @@ public class ApplicationListView : ApplicationView {
 		this.control_center_buttons.clear();
 
 		// Destroy all category items
-		foreach (var child in this.categories.get_children()) {
+		this.categories.get_children().foreach((child) => {
 			child.destroy();
-		}
+		});
 
 		// Load all of the new content in the background
 		Idle.add(() => {
@@ -160,9 +185,10 @@ public class ApplicationListView : ApplicationView {
 		this.all_categories = new CategoryButton(null);
 		this.all_categories.enter_notify_event.connect(this.on_mouse_enter);
 		this.all_categories.toggled.connect(()=> {
-			this.update_category(this.all_categories);
+			this.update_category(all_categories);
 		});
-		this.categories.pack_start(this.all_categories, false, false, 0);
+		all_categories.show_all();
+		this.categories.pack_start(all_categories, false);
 
 		foreach (var category in app_tracker.get_categories()) {
 			// Skip empty categories
@@ -174,14 +200,12 @@ public class ApplicationListView : ApplicationView {
 			var btn = new CategoryButton(category);
 			btn.join_group(all_categories);
 			btn.enter_notify_event.connect(this.on_mouse_enter);
-
-			// Ensures we find the correct button
 			btn.toggled.connect(() => {
-				this.update_category(btn);
+				update_category(btn);
 			});
 
 			btn.show_all();
-			this.categories.pack_start(btn, false, false, 0); // Add the button
+			this.categories.pack_start(btn, false); // Add the button
 
 			// Create a button for each app in this category
 			foreach (var app in category.apps) {
@@ -434,8 +458,10 @@ public class ApplicationListView : ApplicationView {
 				return -1;
 			} else if (sc1 > sc2) {
 				return 1;
+			} else {
+				// Scores are equal, so sort by name
+				return child1.app.name.collate(child2.app.name);
 			}
-			return 0;
 		}
 
 		// Only perform category grouping if headers are visible

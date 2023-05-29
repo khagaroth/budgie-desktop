@@ -22,6 +22,7 @@ namespace Budgie {
 		private Gtk.Label? app_label = null;
 		private string? app_name;
 		private Gtk.Button? dismiss_button = null;
+		private uint? tokeep;
 
 		/**
 		 * Signals
@@ -29,10 +30,11 @@ namespace Budgie {
 		public signal void dismissed_group(string app_name);
 		public signal void dismissed_notification(uint32 id);
 
-		public NotificationGroup(string c_app_icon, string c_app_name, NotificationSort sort_mode) {
+		public NotificationGroup(string c_app_icon, string c_app_name, NotificationSort sort_mode, uint keep) {
 			Object(orientation: Gtk.Orientation.VERTICAL, spacing: 4);
 			can_focus = false; // Disable focus to prevent scroll on click
 			focus_on_click = false;
+			tokeep = keep;
 
 			get_style_context().add_class("raven-notifications-group");
 
@@ -94,9 +96,9 @@ namespace Budgie {
 			}
 
 			var widget = new NotificationWidget(notification);
-
 			notifications.insert(id, widget);
 			list.prepend(widget);
+
 			list.invalidate_sort();
 			update_count();
 
@@ -111,9 +113,10 @@ namespace Budgie {
 		 * dismiss_all is responsible for dismissing all notifications
 		 */
 		public void dismiss_all() {
-			notifications.foreach_steal((id, notification) => {
-				list.remove(notification.get_parent());
-				notification.destroy();
+			notifications.foreach_remove((id, notification) => {
+				var parent = notification.get_parent();
+				list.remove(parent);
+				parent.destroy();
 				dismissed_notification(id);
 				return true;
 			});
@@ -129,13 +132,13 @@ namespace Budgie {
 			var notification = notifications.lookup(id); // Get our notification
 
 			if (notification != null) { // If this notification exists
-				notifications.steal(id);
-				list.remove(notification.get_parent());
+				notifications.remove(id);
+				var parent = notification.get_parent();
+				list.remove(parent);
 				list.invalidate_sort();
-				notification.destroy(); // Nuke the notification
+				parent.destroy();
 				update_count(); // Update our counter
 				dismissed_notification(id); // Notify anything listening
-
 				if (count == 0) { // This was the last notification
 					dismissed_group(app_name); // Dismiss the group
 				}
@@ -143,10 +146,48 @@ namespace Budgie {
 		}
 
 		/**
+		 * too many notifications will choke raven and the desktop, so let's set a limit;
+		 * keep the latest n-notifications of current group, delete older ones
+		 */
+		public void limit_notifications () {
+			GLib.List<uint32> currnotifs = notifications.get_keys();
+			currnotifs.sort((a, b) => {
+				return (int) (a > b) - (int) (a < b);
+			});
+			uint n_currnotifs = currnotifs.length();
+			/**
+			 * no need to reduce if the current number of notifications is below our threshold
+			 * and we shouldn't attempt to set a negative uint
+			 */
+			if (n_currnotifs <= tokeep) return;
+			uint n_remove = n_currnotifs - tokeep;
+			int count = 0;
+			foreach (uint n in currnotifs) {
+				if (count < n_remove) {
+					remove_notification(n);
+				} else {
+					break;
+				}
+				count++;
+			}
+		}
+
+		/**
+		 * if the total number of notifications exceeds threshold, NotificationsView will
+		 * update the max number per group ('tokeep')
+		 */
+		public void set_group_max_notifications(uint keep) {
+			tokeep = keep;
+		}
+
+		/**
 		 * update_count updates our notifications count for this group
 		 */
 		public void update_count() {
 			count = (int) notifications.length;
+			if (count > tokeep) {
+				limit_notifications();
+			}
 			app_label.set_markup("<b>%s (%i)</b>".printf(app_name, count));
 		}
 

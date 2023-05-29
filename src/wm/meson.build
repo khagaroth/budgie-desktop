@@ -18,6 +18,18 @@ budgie_wm_sources = [
 
 budgie_wm_status_vala_args = []
 
+zenity = find_program('zenity', required: false)
+assert(zenity.found(), 'Zenity is a required program at build and run-time for dialog support in budgie-wm. Please include it in both build and run deps, as well as check if you need to set use-old-zenity.')
+
+use_old_zenity = get_option('use-old-zenity')
+
+if use_old_zenity == false
+    message('Using new zenity flags')
+    budgie_wm_status_vala_args += ['-D', 'HAVE_NEW_ZENITY']
+else
+    message('Using old zenity flags')
+endif
+
 dep_graphene = dependency('graphene-gobject-1.0', version: '>= 1.10')
 dep_wm = dependency('libmagpie-11', version: '>= 43', required: false)
 
